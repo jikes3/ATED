@@ -1,0 +1,41 @@
+name: OpenHEMS Core
+description: Lokální HEMS pro Home Assistant – průvodce, Device Registry, živý dashboard a bezpečný discovery režim.
+version: "0.5.0"
+slug: openhems
+url: https://github.com/openhems/openhems
+arch:
+  - amd64
+  - aarch64
+startup: application
+boot: auto
+init: false
+ingress: true
+ingress_port: 8099
+panel_icon: mdi:home-lightning-bolt
+panel_title: OpenHEMS
+homeassistant_api: true
+hassio_api: true
+hassio_role: default
+map:
+  - type: addon_config
+    read_only: false
+options:
+  tank_level_entity: sensor.me202w_level_sensor_hloubka
+  refill_pump_entity: light.tz3218_4way_switch_ts000f_svetlo_2
+  tank_capacity_l: 6000
+  tank_length_m: 3.0
+  tank_diameter_m: 1.6
+  refill_start_percent: 20
+  refill_stop_percent: 50
+  emergency_percent: 10
+  dry_run: true
+schema:
+  tank_level_entity: str
+  refill_pump_entity: str
+  tank_capacity_l: float
+  tank_length_m: float
+  tank_diameter_m: float
+  refill_start_percent: float
+  refill_stop_percent: float
+  emergency_percent: float
+  dry_run: bool
