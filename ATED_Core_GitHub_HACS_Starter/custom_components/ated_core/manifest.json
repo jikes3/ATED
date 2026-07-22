@@ -1,0 +1,14 @@
+{
+  "domain": "ated_core",
+  "name": "ATED Core",
+  "version": "0.1.0",
+  "config_flow": true,
+  "documentation": "https://github.com/YOUR_GITHUB_USERNAME/ated-core",
+  "issue_tracker": "https://github.com/YOUR_GITHUB_USERNAME/ated-core/issues",
+  "codeowners": [
+    "@YOUR_GITHUB_USERNAME"
+  ],
+  "integration_type": "service",
+  "iot_class": "local_push",
+  "requirements": []
+}

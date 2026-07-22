@@ -1,0 +1,43 @@
+name: Publish release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify manifest version matches tag
+        shell: bash
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          MANIFEST_VERSION="$(python -c 'import json; print(json.load(open("custom_components/ated_core/manifest.json"))["version"])')"
+          if [ "$TAG_VERSION" != "$MANIFEST_VERSION" ]; then
+            echo "Tag $TAG_VERSION does not match manifest version $MANIFEST_VERSION"
+            exit 1
+          fi
+
+      - name: Build release archive
+        run: |
+          mkdir -p dist/ated_core/custom_components
+          cp -R custom_components/ated_core dist/ated_core/custom_components/
+          cp README.md LICENSE CHANGELOG.md hacs.json dist/ated_core/
+          cd dist
+          zip -r "ated-core-${GITHUB_REF_NAME}.zip" ated_core
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            "dist/ated-core-${GITHUB_REF_NAME}.zip" \
+            --generate-notes \
+            --title "ATED Core ${GITHUB_REF_NAME}"
