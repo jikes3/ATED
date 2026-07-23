@@ -9,7 +9,13 @@ CONF_ENTITY_IDS = "entity_ids"
 
 DEFAULT_SNAPSHOT_INTERVAL = 300
 DATA_DIRECTORY = "ated_data"
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
+INTEGRATION_VERSION = "0.2.0"
+
+QUALITY_VERIFIED = "verified"
+QUALITY_INVALID = "invalid"
+QUALITY_MISSING = "missing"
+QUALITY_VALUES = (QUALITY_VERIFIED, QUALITY_INVALID, QUALITY_MISSING)
 
 DEFAULT_ENTITY_IDS = [
     "sensor.itepli65_temperature",
@@ -24,6 +30,7 @@ DEFAULT_ENTITY_IDS = [
     "sensor.inverter_pool_heat_pump_teplota_vymeniku_tepla",
 ]
 
+# Rules never alter raw history. They only affect normalized_value and quality.
 INVALID_RULES = {
     "sensor.inverter_pool_heat_pump_teplota": {"equals": -22.0},
 }

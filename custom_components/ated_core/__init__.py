@@ -5,7 +5,10 @@ from datetime import timedelta
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import Event, HomeAssistant
-from homeassistant.helpers.event import async_track_state_change_event, async_track_time_interval
+from homeassistant.helpers.event import (
+    async_track_state_change_event,
+    async_track_time_interval,
+)
 
 from .const import (
     CONF_ENTITY_IDS,
@@ -14,9 +17,8 @@ from .const import (
     DEFAULT_SNAPSHOT_INTERVAL,
     PLATFORMS,
 )
-from .logger import AtedDataLogger
+from .logger import AtedHistorian
 from .models import AtedRuntimeData
-
 
 type AtedConfigEntry = ConfigEntry[AtedRuntimeData]
 
@@ -34,22 +36,22 @@ async def async_setup_entry(hass: HomeAssistant, entry: AtedConfigEntry) -> bool
         )
     )
 
-    logger = AtedDataLogger(hass, entity_ids)
-    await logger.async_initialize()
+    historian = AtedHistorian(hass, entity_ids)
+    await historian.async_initialize()
 
     async def _state_changed(event: Event) -> None:
         new_state = event.data.get("new_state")
         entity_id = event.data.get("entity_id")
-        if new_state is None or entity_id not in logger.entity_ids:
+        if new_state is None or entity_id not in historian.entity_ids:
             return
-        await logger.async_log_state(entity_id, new_state)
+        await historian.async_log_state(entity_id, new_state)
 
     async def _snapshot(_now) -> None:
-        await logger.async_log_snapshot()
+        await historian.async_log_snapshot()
 
     unsub_state = async_track_state_change_event(
         hass,
-        logger.entity_ids,
+        historian.entity_ids,
         _state_changed,
     )
     unsub_snapshot = async_track_time_interval(
@@ -59,12 +61,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: AtedConfigEntry) -> bool
     )
 
     entry.runtime_data = AtedRuntimeData(
-        logger=logger,
+        historian=historian,
         unsub_state=unsub_state,
         unsub_snapshot=unsub_snapshot,
     )
 
-    await logger.async_log_initial_states()
+    await historian.async_log_initial_states()
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 
