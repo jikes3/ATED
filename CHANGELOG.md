@@ -2,6 +2,26 @@
 
 Všechny významné změny projektu budou uvedeny v tomto souboru.
 
+## [0.2.0] – ATED Historian
+
+### Přidáno
+- přejmenování interního loggeru na `AtedHistorian`,
+- obnovení dnešního počtu záznamů po restartu Home Assistantu,
+- čas posledního kompletního snapshotu,
+- souhrn kvality dat v každém snapshotu,
+- senzor kvality dat v procentech,
+- senzor počtu sledovaných entit,
+- senzor velikosti archivu,
+- senzor stavu Historianu a chyb zápisu,
+- push aktualizace diagnostických senzorů bez zbytečného pollingu,
+- opravené odkazy a codeowner v `manifest.json`,
+- schema JSONL zvýšeno na verzi 2.
+
+### Kompatibilita historie
+Staré záznamy se nepřepisují. Soubory mohou bezpečně obsahovat záznamy schema verze 1 i 2.
+
+
+
 ## [0.1.0] – 2026-07-22
 
 ### Přidáno
