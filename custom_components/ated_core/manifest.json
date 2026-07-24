@@ -1,11 +1,13 @@
 {
   "domain": "ated_core",
   "name": "ATED Core",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "config_flow": true,
   "documentation": "https://github.com/jikes3/ATED",
   "issue_tracker": "https://github.com/jikes3/ATED/issues",
-  "codeowners": ["@jikes3"],
+  "codeowners": [
+    "@jikes3"
+  ],
   "integration_type": "service",
   "iot_class": "local_push",
   "requirements": []
