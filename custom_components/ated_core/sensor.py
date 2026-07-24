@@ -1,22 +1,21 @@
 """Diagnostic sensors for ATED Core."""
 from __future__ import annotations
 
-from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import PERCENTAGE, UnitOfDataRate, UnitOfInformation, UnitOfTime
+from homeassistant.const import PERCENTAGE, UnitOfInformation, UnitOfTime
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
-from .const import DOMAIN
+from .const import DOMAIN, QUALITY_VERIFIED, SCHEMA_VERSION
 from .health import HistorianHealthMonitor
 from .models import AtedRuntimeData
 
-VERSION = "0.3.0"
+VERSION = "0.3.1"
 _MONITORS: dict[str, HistorianHealthMonitor] = {}
 
 
@@ -26,8 +25,11 @@ async def async_setup_entry(
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Set up Historian Health Core sensors."""
-    logger = entry.runtime_data.logger
-    base_path = Path(getattr(logger, "base_path", hass.config.path("ated_data")))
+    historian = entry.runtime_data.historian
+    base_path = Path(
+        getattr(historian, "base_path", hass.config.path("ated_data"))
+    )
+
     monitor = HistorianHealthMonitor(hass, base_path)
     _MONITORS[entry.entry_id] = monitor
     await monitor.async_refresh(force=True)
@@ -78,10 +80,12 @@ class AtedBaseSensor(SensorEntity):
         )
 
     @property
-    def logger(self):
-        return self.entry.runtime_data.logger
+    def historian(self):
+        """Return the active historian instance."""
+        return self.entry.runtime_data.historian
 
     async def async_update(self) -> None:
+        """Refresh cached health information."""
         await self.monitor.async_refresh()
 
 
@@ -95,7 +99,11 @@ class AtedHistorianStatusSensor(AtedBaseSensor):
 
     @property
     def native_value(self) -> str:
-        return "online" if getattr(self.logger, "last_record_at", None) else "starting"
+        if getattr(self.historian, "last_error", None):
+            return "error"
+        if getattr(self.historian, "last_record_at", None) is None:
+            return "starting"
+        return "online"
 
 
 class AtedWriteErrorsSensor(AtedBaseSensor):
@@ -108,7 +116,11 @@ class AtedWriteErrorsSensor(AtedBaseSensor):
 
     @property
     def native_value(self) -> int:
-        return int(getattr(self.logger, "write_errors", 0) or 0)
+        return int(getattr(self.historian, "write_errors", 0) or 0)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {"poslední_chyba": getattr(self.historian, "last_error", None)}
 
 
 class AtedDataQualitySensor(AtedBaseSensor):
@@ -122,22 +134,20 @@ class AtedDataQualitySensor(AtedBaseSensor):
 
     @property
     def native_value(self) -> int:
-        explicit = getattr(self.logger, "quality_percent", None)
-        if explicit is not None:
-            return round(float(explicit))
-
-        entity_ids = tuple(getattr(self.logger, "entity_ids", ()))
-        if not entity_ids:
+        counts = dict(getattr(self.historian, "quality_counts", {}) or {})
+        total = sum(int(value or 0) for value in counts.values())
+        if total <= 0:
             return 0
-        verified = 0
-        for entity_id in entity_ids:
-            state = self.logger.hass.states.get(entity_id)
-            if state is None:
-                continue
-            quality, _ = self.logger._quality(entity_id, state)
-            if quality == "verified":
-                verified += 1
-        return round((verified / len(entity_ids)) * 100)
+        verified = int(counts.get(QUALITY_VERIFIED, 0) or 0)
+        return round((verified / total) * 100)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {
+            "souhrn_kvality": dict(
+                getattr(self.historian, "quality_counts", {}) or {}
+            )
+        }
 
 
 class AtedLastSnapshotSensor(AtedBaseSensor):
@@ -152,7 +162,7 @@ class AtedLastSnapshotSensor(AtedBaseSensor):
     @property
     def native_value(self):
         return (
-            getattr(self.logger, "last_snapshot_at", None)
+            getattr(self.historian, "last_snapshot_at", None)
             or self.monitor.snapshot.last_snapshot_at
         )
 
@@ -169,7 +179,7 @@ class AtedLastRecordSensor(AtedBaseSensor):
     @property
     def native_value(self):
         return (
-            getattr(self.logger, "last_record_at", None)
+            getattr(self.historian, "last_record_at", None)
             or self.monitor.snapshot.last_record_at
         )
 
@@ -184,11 +194,11 @@ class AtedTrackedEntitiesSensor(AtedBaseSensor):
 
     @property
     def native_value(self) -> int:
-        return len(tuple(getattr(self.logger, "entity_ids", ())))
+        return len(tuple(getattr(self.historian, "entity_ids", ())))
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        return {"entities": list(getattr(self.logger, "entity_ids", ()))}
+        return {"entities": list(getattr(self.historian, "entity_ids", ()))}
 
 
 class AtedArchiveSizeSensor(AtedBaseSensor):
@@ -215,7 +225,7 @@ class AtedRecordsTodaySensor(AtedBaseSensor):
 
     @property
     def native_value(self) -> int:
-        return int(getattr(self.logger, "records_today", 0) or 0)
+        return int(getattr(self.historian, "records_today", 0) or 0)
 
 
 class AtedTotalRecordsSensor(AtedBaseSensor):
@@ -340,6 +350,7 @@ class AtedStorageEstimateSensor(AtedBaseSensor):
         days = self.monitor.snapshot.estimated_days_remaining
         if days is None:
             return "nelze určit"
+
         years = days / 365.25
         if years >= 100:
             return "> 100 let"
@@ -361,7 +372,7 @@ class AtedHistorianHealthSensor(AtedBaseSensor):
     @property
     def native_value(self) -> str:
         snap = self.monitor.snapshot
-        errors = int(getattr(self.logger, "write_errors", 0) or 0)
+        errors = int(getattr(self.historian, "write_errors", 0) or 0)
         free_gb = snap.disk_free_bytes / 1000**3
 
         if errors > 0 or snap.unreadable_lines > 0 or free_gb < 2:
@@ -377,7 +388,7 @@ class AtedHistorianHealthSensor(AtedBaseSensor):
         snap = self.monitor.snapshot
         return {
             "verze": VERSION,
-            "schema": getattr(self.logger, "schema_version", None),
+            "schema": SCHEMA_VERSION,
             "obnoveno": snap.refreshed_at.isoformat(),
             "nečitelné_řádky": snap.unreadable_lines,
             "hranice_varování_procent": 80,

@@ -1,7 +1,7 @@
 {
   "domain": "ated_core",
   "name": "ATED Core",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "config_flow": true,
   "documentation": "https://github.com/jikes3/ATED",
   "issue_tracker": "https://github.com/jikes3/ATED/issues",
