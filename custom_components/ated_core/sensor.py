@@ -6,16 +6,16 @@ from typing import Any
 
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import PERCENTAGE, UnitOfInformation, UnitOfTime
+from homeassistant.const import PERCENTAGE, EntityCategory, UnitOfInformation, UnitOfTime
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
-from .const import DOMAIN, QUALITY_VERIFIED, SCHEMA_VERSION
+from .const import DOMAIN, INTEGRATION_VERSION, QUALITY_VERIFIED, SCHEMA_VERSION
 from .health import HistorianHealthMonitor
 from .models import AtedRuntimeData
 
-VERSION = "0.3.1"
+VERSION = INTEGRATION_VERSION
 _MONITORS: dict[str, HistorianHealthMonitor] = {}
 
 
@@ -53,6 +53,12 @@ async def async_setup_entry(
             AtedDiskUsageSensor(entry, monitor),
             AtedStorageEstimateSensor(entry, monitor),
             AtedHistorianHealthSensor(entry, monitor),
+            AtedVersionSensor(entry, monitor),
+            AtedDeviceRegistryHealthSensor(entry, monitor),
+            AtedRegisteredDevicesSensor(entry, monitor),
+            AtedRegisteredEntitiesSensor(entry, monitor),
+            AtedUnavailableEntitiesSensor(entry, monitor),
+            AtedMissingEntitiesSensor(entry, monitor),
         ],
         update_before_add=False,
     )
@@ -63,6 +69,7 @@ class AtedBaseSensor(SensorEntity):
 
     _attr_has_entity_name = True
     _attr_should_poll = True
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     def __init__(
         self,
@@ -75,7 +82,7 @@ class AtedBaseSensor(SensorEntity):
             identifiers={(DOMAIN, entry.entry_id)},
             name="ATED Core",
             manufacturer="ATED",
-            model="Historian Health Core",
+            model=f"Historian Health Core • ATED {VERSION}",
             sw_version=VERSION,
         )
 
@@ -395,3 +402,156 @@ class AtedHistorianHealthSensor(AtedBaseSensor):
             "hranice_kritická_procent": 90,
             "kritické_volné_místo_GB": 2,
         }
+
+
+class AtedVersionSensor(AtedBaseSensor):
+    _attr_name = "Verze ATED"
+    _attr_icon = "mdi:tag-outline"
+
+    def __init__(self, entry, monitor):
+        super().__init__(entry, monitor)
+        self._attr_unique_id = f"{entry.entry_id}_ated_version"
+
+    @property
+    def native_value(self) -> str:
+        return VERSION
+
+
+class AtedDeviceRegistryBaseSensor(AtedBaseSensor):
+    """Base sensor for Device Registry Core."""
+
+    @property
+    def registry(self):
+        return self.entry.runtime_data.device_registry
+
+    async def async_update(self) -> None:
+        await self.registry.async_refresh()
+
+    def __init__(self, entry, monitor):
+        super().__init__(entry, monitor)
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, f"{entry.entry_id}_device_registry")},
+            name="ATED Device Registry",
+            manufacturer="ATED",
+            model=f"Device Registry Core • ATED {VERSION}",
+            sw_version=VERSION,
+            via_device=(DOMAIN, entry.entry_id),
+        )
+
+
+class AtedDeviceRegistryHealthSensor(AtedDeviceRegistryBaseSensor):
+    _attr_name = "Device Registry Health"
+    _attr_icon = "mdi:devices"
+
+    def __init__(self, entry, monitor):
+        super().__init__(entry, monitor)
+        self._attr_unique_id = f"{entry.entry_id}_device_registry_health"
+
+    @property
+    def native_value(self) -> str:
+        return self.registry.health
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {
+            "obnoveno": (
+                self.registry.last_refresh_at.isoformat()
+                if self.registry.last_refresh_at
+                else None
+            ),
+            "poslední_chyba": self.registry.last_error,
+            "chyby_zápisu": self.registry.write_errors,
+            "soubor_registru": str(self.registry.storage_path),
+            "kategorie": self.registry.category_counts,
+            "capabilities": self.registry.capability_counts,
+            "dostupné_entity": self.registry.available_entities,
+            "nedostupné_entity": self.registry.unavailable_entities,
+            "chybějící_entity": self.registry.missing_entities,
+            "diagnostika_entit": self.registry.entity_diagnostics,
+        }
+
+
+class AtedRegisteredDevicesSensor(AtedDeviceRegistryBaseSensor):
+    _attr_name = "Registrovaná zařízení"
+    _attr_icon = "mdi:devices"
+
+    def __init__(self, entry, monitor):
+        super().__init__(entry, monitor)
+        self._attr_unique_id = f"{entry.entry_id}_registered_devices"
+
+    @property
+    def native_value(self) -> int:
+        return self.registry.registered_device_count
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {
+            "zařízení": [
+                {
+                    "id": device.device_id,
+                    "název": device.name,
+                    "kategorie": device.category,
+                    "integrace": device.integration,
+                    "capabilities": device.capabilities,
+                    "počet_entit": len(device.entities),
+                }
+                for device in self.registry.devices.values()
+            ]
+        }
+
+
+class AtedRegisteredEntitiesSensor(AtedDeviceRegistryBaseSensor):
+    _attr_name = "Registrované entity"
+    _attr_icon = "mdi:format-list-checks"
+
+    def __init__(self, entry, monitor):
+        super().__init__(entry, monitor)
+        self._attr_unique_id = f"{entry.entry_id}_registered_entities"
+
+    @property
+    def native_value(self) -> int:
+        return self.registry.registered_entity_count
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {
+            "dostupné": self.registry.available_entity_count,
+            "dostupné_entity": self.registry.available_entities,
+            "nedostupné_entity": self.registry.unavailable_entities,
+            "chybějící_entity": self.registry.missing_entities,
+            "sledované": list(self.registry.entity_ids),
+        }
+
+
+class AtedUnavailableEntitiesSensor(AtedDeviceRegistryBaseSensor):
+    _attr_name = "Nedostupné entity"
+    _attr_icon = "mdi:cloud-alert"
+
+    def __init__(self, entry, monitor):
+        super().__init__(entry, monitor)
+        self._attr_unique_id = f"{entry.entry_id}_unavailable_entities"
+
+    @property
+    def native_value(self) -> int:
+        return len(self.registry.unavailable_entities)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {"entities": self.registry.unavailable_entities}
+
+
+class AtedMissingEntitiesSensor(AtedDeviceRegistryBaseSensor):
+    _attr_name = "Chybějící entity"
+    _attr_icon = "mdi:link-variant-off"
+
+    def __init__(self, entry, monitor):
+        super().__init__(entry, monitor)
+        self._attr_unique_id = f"{entry.entry_id}_missing_entities"
+
+    @property
+    def native_value(self) -> int:
+        return len(self.registry.missing_entities)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {"entities": self.registry.missing_entities}

@@ -4,6 +4,7 @@ from __future__ import annotations
 from datetime import timedelta
 
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
 from homeassistant.core import Event, HomeAssistant
 from homeassistant.helpers.event import (
     async_track_state_change_event,
@@ -17,6 +18,7 @@ from .const import (
     DEFAULT_SNAPSHOT_INTERVAL,
     PLATFORMS,
 )
+from .device_registry import AtedDeviceRegistry
 from .logger import AtedHistorian
 from .models import AtedRuntimeData
 
@@ -39,15 +41,28 @@ async def async_setup_entry(hass: HomeAssistant, entry: AtedConfigEntry) -> bool
     historian = AtedHistorian(hass, entity_ids)
     await historian.async_initialize()
 
+    device_registry = AtedDeviceRegistry(hass, entity_ids, historian.base_path)
+    await device_registry.async_initialize()
+
     async def _state_changed(event: Event) -> None:
+        old_state = event.data.get("old_state")
         new_state = event.data.get("new_state")
         entity_id = event.data.get("entity_id")
         if new_state is None or entity_id not in historian.entity_ids:
             return
         await historian.async_log_state(entity_id, new_state)
 
+        old_available = (
+            old_state is not None
+            and old_state.state not in ("unknown", "unavailable")
+        )
+        new_available = new_state.state not in ("unknown", "unavailable")
+        if old_available != new_available:
+            await device_registry.async_refresh(force=True)
+
     async def _snapshot(_now) -> None:
         await historian.async_log_snapshot()
+        await device_registry.async_refresh(force=True)
 
     unsub_state = async_track_state_change_event(
         hass,
@@ -60,10 +75,22 @@ async def async_setup_entry(hass: HomeAssistant, entry: AtedConfigEntry) -> bool
         timedelta(seconds=max(60, snapshot_interval)),
     )
 
+    async def _home_assistant_started(_event: Event) -> None:
+        await device_registry.async_refresh(force=True)
+
+    unsub_started = None
+    if not hass.is_running:
+        unsub_started = hass.bus.async_listen_once(
+            EVENT_HOMEASSISTANT_STARTED,
+            _home_assistant_started,
+        )
+
     entry.runtime_data = AtedRuntimeData(
         historian=historian,
+        device_registry=device_registry,
         unsub_state=unsub_state,
         unsub_snapshot=unsub_snapshot,
+        unsub_started=unsub_started,
     )
 
     await historian.async_log_initial_states()
@@ -77,4 +104,6 @@ async def async_unload_entry(hass: HomeAssistant, entry: AtedConfigEntry) -> boo
     if unloaded:
         entry.runtime_data.unsub_state()
         entry.runtime_data.unsub_snapshot()
+        if entry.runtime_data.unsub_started is not None:
+            entry.runtime_data.unsub_started()
     return unloaded
