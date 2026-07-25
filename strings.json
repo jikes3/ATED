@@ -1,0 +1,29 @@
+{
+  "title": "ATED Core",
+  "config": {
+    "step": {
+      "user": {
+        "title": "ATED Core – první sběr dat",
+        "description": "Vyber entity, které se mají dlouhodobě archivovat. Neexistující výchozí entity lze odebrat a správné doplnit.",
+        "data": {
+          "entity_ids": "Sledované entity",
+          "snapshot_interval": "Interval snímku domu"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "ATED Core je již nastaven."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Nastavení sběru dat",
+        "data": {
+          "entity_ids": "Sledované entity",
+          "snapshot_interval": "Interval snímku domu"
+        }
+      }
+    }
+  }
+}
