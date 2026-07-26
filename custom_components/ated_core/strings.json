@@ -7,7 +7,8 @@
         "description": "Vyber entity, které se mají dlouhodobě archivovat. Neexistující výchozí entity lze odebrat a správné doplnit.",
         "data": {
           "entity_ids": "Sledované entity",
-          "snapshot_interval": "Interval snímku domu"
+          "snapshot_interval": "Interval snímku domu",
+          "explanation_detail": "Výchozí úroveň detailu vysvětlení"
         }
       }
     },
@@ -21,7 +22,8 @@
         "title": "Nastavení sběru dat",
         "data": {
           "entity_ids": "Sledované entity",
-          "snapshot_interval": "Interval snímku domu"
+          "snapshot_interval": "Interval snímku domu",
+          "explanation_detail": "Úroveň detailu vysvětlení"
         }
       }
     }
