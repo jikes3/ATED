@@ -1,0 +1,14 @@
+{
+  "name": "ATED",
+  "version": "0.5.0-alpha.1",
+  "release_type": "complete_installation_package",
+  "based_on": "0.4.1",
+  "historian_schema": 2,
+  "device_registry_schema": 1,
+  "event_journal_schema": 1,
+  "presentation_schema": 1,
+  "control_mode": "read_only",
+  "live_control_allowed": false,
+  "tests_passed": 10,
+  "validation": "PASS"
+}

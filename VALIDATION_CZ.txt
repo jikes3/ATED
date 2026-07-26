@@ -1,0 +1,13 @@
+ATED 0.5.0-alpha.1 validation
+STATUS: PASS
+
+- Kompletní základ 0.4.1: přítomen
+- Historian schema: 2 (beze změny)
+- Device Registry schema: 1 (beze změny)
+- Event Journal schema: 1
+- Presentation schema: 1
+- Režim řízení: read-only; LIVE programově zakázáno
+- Python compile: PASS
+- JSON parse: PASS
+- Standalone unit tests: 10/10 PASS
+- Plný import uvnitř Home Assistant runtime: neproveden mimo instalaci HA
