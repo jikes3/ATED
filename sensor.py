@@ -83,7 +83,6 @@ class AtedBaseSensor(SensorEntity):
             name="ATED Core",
             manufacturer="ATED",
             model=f"Historian Health Core • ATED {VERSION}",
-            sw_version=VERSION,
         )
 
     @property
@@ -434,7 +433,6 @@ class AtedDeviceRegistryBaseSensor(AtedBaseSensor):
             name="ATED Device Registry",
             manufacturer="ATED",
             model=f"Device Registry Core • ATED {VERSION}",
-            sw_version=VERSION,
             via_device=(DOMAIN, entry.entry_id),
         )
 
@@ -464,10 +462,6 @@ class AtedDeviceRegistryHealthSensor(AtedDeviceRegistryBaseSensor):
             "soubor_registru": str(self.registry.storage_path),
             "kategorie": self.registry.category_counts,
             "capabilities": self.registry.capability_counts,
-            "dostupné_entity": self.registry.available_entities,
-            "nedostupné_entity": self.registry.unavailable_entities,
-            "chybějící_entity": self.registry.missing_entities,
-            "diagnostika_entit": self.registry.entity_diagnostics,
         }
 
 
@@ -516,9 +510,6 @@ class AtedRegisteredEntitiesSensor(AtedDeviceRegistryBaseSensor):
     def extra_state_attributes(self) -> dict[str, Any]:
         return {
             "dostupné": self.registry.available_entity_count,
-            "dostupné_entity": self.registry.available_entities,
-            "nedostupné_entity": self.registry.unavailable_entities,
-            "chybějící_entity": self.registry.missing_entities,
             "sledované": list(self.registry.entity_ids),
         }
 
