@@ -1,0 +1,9 @@
+ATED 0.5.0-alpha.1 – instalace
+
+1. Vytvořte plnou zálohu Home Assistantu a kopii adresáře custom_components/ated_core.
+2. Rozbalte tento ZIP do kořene konfigurace Home Assistantu tak, aby vznikl adresář custom_components/ated_core.
+3. Restartujte Home Assistant.
+4. V Nastavení > Zařízení a služby > ATED Core > Nastavit lze zvolit úroveň detailu vysvětlení 0–4.
+5. Ověřte, že diagnostické entity Historianu a Device Registry zůstaly dostupné.
+
+Návrat: obnovte zálohu adresáře ated_core z verze 0.4.1. Datový adresář Historianu není nutné měnit.
